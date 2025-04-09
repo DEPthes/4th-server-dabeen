@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
@@ -27,3 +28,15 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+=======
+### Example user template template
+### Example user template
+
+# IntelliJ project files
+.idea
+*.iml
+out
+gen
+.gradle
+build
+>>>>>>> d61294570a6044790c0b6ed384e3979254cd1cfa
