@@ -33,7 +33,10 @@ bin/
 ### Example user template
 
 # IntelliJ project files
-.idea
+.idea/
+target/
+.vscode/
+build/
 *.iml
 out
 gen
