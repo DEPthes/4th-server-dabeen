@@ -1,7 +1,7 @@
 package hello.hello_spring.controller;
 
 public class MemberForm {
-    privite String name;
+    private String name;
 
     public String getName() {
         return name;

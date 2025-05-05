@@ -1,44 +1,39 @@
 package hello.hello_spring.service;
 
 import hello.hello_spring.domain.Member;
-import hello.hello_spring.repository.MemoryMemberRepository;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import hello.hello_spring.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@SpringBootTest
+@Transactional // 테스트 종료 후 자동 롤백
 class MemberServiceTest {
 
+    @Autowired
     MemberService memberService;
-    MemoryMemberRepository memberRepository;
 
-    @BeforeEach
-    void setUp() {
-        memberRepository = new MemoryMemberRepository();
-        memberService = new MemberService(memberRepository);
-    }
-
-    @AfterEach
-    void tearDown() {
-        memberRepository.clearStore();
-    }
+    @Autowired
+    MemberRepository memberRepository;
 
     @Test
     void 회원가입() {
         // given
         Member member = new Member();
-        member.setName("spring");
+        member.setName("springDB");
 
         // when
         Long saveId = memberService.join(member);
 
         // then
-        Member result = memberRepository.findById(saveId).get();
-        assertThat(result.getName()).isEqualTo("spring");
+        Member result = memberService.findOne(saveId).get();
+        assertThat(result.getName()).isEqualTo("springDB");
     }
 
     @Test
@@ -53,10 +48,10 @@ class MemberServiceTest {
         memberService.join(member2);
 
         // when
-        List<Member> result = memberService.findMembers();
+        List<Member> members = memberService.findMembers();
 
         // then
-        assertThat(result.size()).isEqualTo(2);
+        assertThat(members.size()).isEqualTo(2);
     }
 
     @Test
