@@ -3,8 +3,12 @@ package hello.hello_spring.repository;
 import hello.hello_spring.domain.Member;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 
 import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
 
 public class JdbcTemplateMemberRepository implements MemberRepository {
@@ -17,23 +21,29 @@ public class JdbcTemplateMemberRepository implements MemberRepository {
 
     @Override
     public Member save(Member member) {
-        jdbcTemplate.update("insert into member(name) values(?)", member.getName());
-        return findByName(member.getName()).orElse(null); // 임시 방식
+        SimpleJdbcInsert jdbcInsert = new SimpleJdbcInsert(jdbcTemplate)
+                .withTableName("member")
+                .usingGeneratedKeyColumns("id");
+
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("name", member.getName()); //테이블 알아서 만들어짐
+
+        Number key = jdbcInsert.executeAndReturnKey(new MapSqlParameterSource(parameters));
+        member.setId(key.longValue());
+        return member;
     }
 
     @Override
     public Optional<Member> findById(Long id) {
         List<Member> result = jdbcTemplate.query(
-                "select * from member where id = ?", memberRowMapper(), id
-        );
+                "select * from member where id = ?", memberRowMapper(), id);
         return result.stream().findAny();
     }
 
     @Override
     public Optional<Member> findByName(String name) {
         List<Member> result = jdbcTemplate.query(
-                "select * from member where name = ?", memberRowMapper(), name
-        );
+                "select * from member where name = ?", memberRowMapper(), name);
         return result.stream().findAny();
     }
 
