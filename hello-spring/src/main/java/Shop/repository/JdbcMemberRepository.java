@@ -1,6 +1,6 @@
-package hello.hello_spring.repository;
+package Shop.repository;
 
-import hello.hello_spring.domain.Member;
+import Shop.domain.Member;
 
 import javax.sql.DataSource;
 import java.sql.*;

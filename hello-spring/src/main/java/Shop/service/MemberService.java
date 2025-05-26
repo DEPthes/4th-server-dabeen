@@ -1,7 +1,7 @@
-package hello.hello_spring.service;
+package Shop.service;
 
-import hello.hello_spring.domain.Member;
-import hello.hello_spring.repository.MemberRepository;
+import Shop.domain.Member;
+import Shop.repository.MemberRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 

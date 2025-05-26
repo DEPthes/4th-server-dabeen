@@ -1,8 +1,10 @@
-package hello.hello_spring.repository;
+package Shop.repository;
 
-import hello.hello_spring.domain.Member;
+import Shop.domain.Member;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 
 import javax.sql.DataSource;
 import java.util.*;
@@ -17,14 +19,24 @@ public class JdbcTemplateMemberRepository implements MemberRepository {
 
     @Override
     public Member save(Member member) {
-        jdbcTemplate.update("insert into member(name) values(?)", member.getName());
-        return findByName(member.getName()).orElse(null); // 임시 방식
+        SimpleJdbcInsert jdbcInsert = new SimpleJdbcInsert(jdbcTemplate)
+                .withTableName("member")
+                .usingGeneratedKeyColumns("id");
+
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("name", member.getName()); // 테이블에 name 값을 넣음
+
+        Number key = jdbcInsert.executeAndReturnKey(new MapSqlParameterSource(parameters));
+        member.setId(key.longValue());
+        return member;
     }
 
     @Override
     public Optional<Member> findById(Long id) {
         List<Member> result = jdbcTemplate.query(
-                "select * from member where id = ?", memberRowMapper(), id
+                "SELECT * FROM member WHERE id = ?",
+                memberRowMapper(),
+                id
         );
         return result.stream().findAny();
     }
@@ -32,14 +44,16 @@ public class JdbcTemplateMemberRepository implements MemberRepository {
     @Override
     public Optional<Member> findByName(String name) {
         List<Member> result = jdbcTemplate.query(
-                "select * from member where name = ?", memberRowMapper(), name
+                "SELECT * FROM member WHERE name = ?",
+                memberRowMapper(),
+                name
         );
         return result.stream().findAny();
     }
 
     @Override
     public List<Member> findAll() {
-        return jdbcTemplate.query("select * from member", memberRowMapper());
+        return jdbcTemplate.query("SELECT * FROM member", memberRowMapper());
     }
 
     private RowMapper<Member> memberRowMapper() {

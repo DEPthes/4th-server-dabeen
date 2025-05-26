@@ -1,4 +1,4 @@
-package hello.hello_spring.domain;
+package Shop.domain;
 
 public class Member {
 
