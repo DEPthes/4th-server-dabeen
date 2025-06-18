@@ -1,3 +1,6 @@
+# macOS
+.DS_Store
+
 # Maven
 target/
 !.mvn/wrapper/maven-wrapper.jar
@@ -24,13 +27,13 @@ out/
 !**/src/test/**/out/
 
 # Eclipse
-.apt_generated
+.apt_generated/
 .classpath
 .factorypath
 .project
-.settings
-.springBeans
-.sts4-cache
+.settings/
+.springBeans/
+.sts4-cache/
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
@@ -45,5 +48,18 @@ bin/
 # VS Code
 .vscode/
 
-# macOS
-.DS_Store
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Others
+HELP.md
