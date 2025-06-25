@@ -1,117 +1,166 @@
 package com.example.database.controller;
 
-import com.example.database.domain.OnlineBookStore.PublisherEntity;
-import com.example.database.service.OnlineBookStore.BookService;
-import com.example.database.service.OnlineBookStore.PublishedByService;
-import com.example.database.service.OnlineBookStore.PublisherService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.database.domain.BookEntity;
+import com.example.database.domain.BookRental;
+import com.example.database.domain.User;
+import com.example.database.dto.BookDto;
+import com.example.database.service.BookService;
+import com.example.database.service.UserService;
+import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.ModelAndView;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
 
 @Controller
-@RequestMapping("/onlinebookstore")
+@RequestMapping("/books")
 public class BookController {
-    private static final Logger logger = LoggerFactory.getLogger(BookController.class);
     
-    @Autowired
-    private PublishedByService publishedByService;
-
-    @Autowired
-    private PublisherService publisherService;
-
-    @Autowired
-    private BookService bookService;
-
-    @GetMapping("/insert_book")
-    public String insertBookForm() {
-        return "insert_book";
+    private final BookService bookService;
+    private final UserService userService;
+    
+    public BookController(BookService bookService, UserService userService) {
+        this.bookService = bookService;
+        this.userService = userService;
     }
-
-    @GetMapping("/book_prices")
-    public ModelAndView getBookPrices() {
-        ModelAndView modelAndView = new ModelAndView("book_prices");
-        modelAndView.addObject("averagePrice", publishedByService.avgPriceYear());
-        modelAndView.addObject("yearlyPrices", publishedByService.avgPriceBookByYear());
-        return modelAndView;
-    }
-
-    @GetMapping("/author_statistics")
-    public ModelAndView getAuthorStatistics() {
-        ModelAndView modelAndView = new ModelAndView("author_statistics");
-        modelAndView.addObject("authorStats", publishedByService.bookPriceByName());
-        return modelAndView;
-    }
-
-    @GetMapping("/stock_above/search")
-    public ModelAndView searchByStock(@RequestParam(required = false) Integer stock) {
-        ModelAndView modelAndView = new ModelAndView("stock_management");
-        if (stock != null) {
-            modelAndView.addObject("books", bookService.getBooksByStock(stock));
-            modelAndView.addObject("minStock", stock);
+    
+    // 책 목록 페이지
+    @GetMapping
+    public String bookList(@RequestParam(required = false) String keyword, Model model) {
+        List<BookEntity> books;
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            books = bookService.searchBooks(keyword);
+        } else {
+            books = bookService.getAvailableBooks();
         }
-        return modelAndView;
+        model.addAttribute("books", books);
+        model.addAttribute("keyword", keyword);
+        return "books/list";
     }
-
-    @PostMapping("/stock_above/discount")
-    public String applyDiscount(@RequestParam int minStock, @RequestParam int discountRate) {
+    
+    // 책 검색 페이지
+    @GetMapping("/search")
+    public String searchBooks(@RequestParam(required = false) String keyword,
+                             @RequestParam(required = false) String searchType,
+                             Model model) {
+        List<BookEntity> books;
+        
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            switch (searchType) {
+                case "title":
+                    books = bookService.searchByTitle(keyword);
+                    break;
+                case "author":
+                    books = bookService.searchByAuthor(keyword);
+                    break;
+                default:
+                    books = bookService.searchBooks(keyword);
+                    break;
+            }
+        } else {
+            books = bookService.getAvailableBooks();
+        }
+        
+        model.addAttribute("books", books);
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("searchType", searchType);
+        return "books/search";
+    }
+    
+    // 책 상세 정보
+    @GetMapping("/{isbn}")
+    public String bookDetail(@PathVariable Long isbn, Model model) {
+        Optional<BookEntity> book = bookService.getBookByIsbn(isbn);
+        if (book.isPresent()) {
+            model.addAttribute("book", book.get());
+            return "books/detail";
+        } else {
+            return "redirect:/books?error=notfound";
+        }
+    }
+    
+    // 책 대출
+    @PostMapping("/{isbn}/rent")
+    public String rentBook(@PathVariable Long isbn, Model model) {
         try {
-            bookService.applyDiscountToBooks(minStock, discountRate);
-            return "redirect:/onlinebookstore/stock_above/search?stock=" + minStock + "&success=true";
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            User user = userService.findByEmail(auth.getName());
+            
+            if (user == null) {
+                return "redirect:/login";
+            }
+            
+            BookRental rental = bookService.rentBook(user, isbn);
+            return "redirect:/books/my-rentals?success=rented";
         } catch (Exception e) {
-            logger.error("Error applying discount: ", e);
-            return "redirect:/onlinebookstore/stock_above/search?stock=" + minStock + "&error=true";
+            return "redirect:/books/" + isbn + "?error=" + e.getMessage();
         }
     }
-
-    @PostMapping("/insert_book")
-    public String insertBook(int isbn, String title, int year, int price,
-                           String authorName, String authorAddress, String authorUrl,
-                           String code, String wareAddress, String warePhone, int num) {
+    
+    // 책 반납
+    @PostMapping("/{isbn}/return")
+    public String returnBook(@PathVariable Long isbn, Model model) {
         try {
-            // 1. 도서 정보 등록
-            logger.info("Attempting to insert book with ISBN: {}", isbn);
-            publishedByService.insertBook(isbn, title, year, price);
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            User user = userService.findByEmail(auth.getName());
             
-            // 2. 저자 정보 등록
-            logger.info("Inserting author: {}", authorName);
-            publishedByService.insertAuthor(authorName, authorAddress, authorUrl);
+            if (user == null) {
+                return "redirect:/login";
+            }
             
-            // 3. 저자-도서 관계 등록
-            logger.info("Linking author with book");
-            publishedByService.insertWrittenBy(authorName, authorAddress, isbn);
-            
-            // 4. 창고 정보 등록
-            logger.info("Inserting warehouse: {}", code);
-            publishedByService.insertWarehouse(code, wareAddress, warePhone);
-            
-            // 5. 재고 정보 등록
-            logger.info("Adding stock information");
-            publishedByService.insertStocks(isbn, code, num);
-
-            // 6. 출판사 정보 등록 (authorName을 출판사로 사용)
-            logger.info("Inserting publisher information");
-            publisherService.save(PublisherEntity.builder()
-                .name(authorName)
-                .address(authorAddress)
-                .phone(warePhone)
-                .url(authorUrl)
-                .build());
-
-            // 7. 출판사-도서 관계 등록
-            logger.info("Linking publisher with book");
-            publishedByService.insertPublishedBy(authorName, isbn);
-            
-            logger.info("Book registration completed successfully");
-            return "redirect:/onlinebookstore/insert_book?success=true";
+            BookRental rental = bookService.returnBook(user, isbn);
+            return "redirect:/books/my-rentals?success=returned";
         } catch (Exception e) {
-            logger.error("Error during book registration: ", e);
-            return "redirect:/onlinebookstore/insert_book?error=true";
+            return "redirect:/books/my-rentals?error=" + e.getMessage();
         }
     }
-} 
+    
+    // 내 대출 현황
+    @GetMapping("/my-rentals")
+    public String myRentals(Model model) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userService.findByEmail(auth.getName());
+        
+        if (user == null) {
+            return "redirect:/login";
+        }
+        
+        List<BookRental> rentals = bookService.getUserRentals(user);
+        List<BookRental> activeRentals = bookService.getUserActiveRentals(user);
+        
+        model.addAttribute("rentals", rentals);
+        model.addAttribute("activeRentals", activeRentals);
+        model.addAttribute("user", user);
+        return "books/my-rentals";
+    }
+    
+    // 책 등록 폼
+    @GetMapping("/add")
+    public String addBookForm(Model model) {
+        model.addAttribute("bookDto", new BookDto());
+        return "books/add";
+    }
+    
+    // 책 등록 처리
+    @PostMapping("/add")
+    public String addBook(@Valid @ModelAttribute BookDto bookDto, 
+                         BindingResult result, 
+                         Model model) {
+        if (result.hasErrors()) {
+            return "books/add";
+        }
+        
+        try {
+            bookService.registerBook(bookDto);
+            return "redirect:/books?success=added";
+        } catch (Exception e) {
+            model.addAttribute("error", e.getMessage());
+            return "books/add";
+        }
+    }
+}
